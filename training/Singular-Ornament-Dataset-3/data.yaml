@@ -1,0 +1,12 @@
+names:
+- Unity
+nc: 1
+roboflow:
+  license: CC BY 4.0
+  project: singular-ornament-dataset
+  url: https://universe.roboflow.com/ornament-identification/singular-ornament-dataset/dataset/3
+  version: 3
+  workspace: ornament-identification
+test: ../test/images
+train: ../train/images
+val: ../valid/images
