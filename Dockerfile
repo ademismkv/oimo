@@ -19,6 +19,7 @@ RUN apt-get update && \
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PORT=8000
+ENV PATH="/usr/local/bin:${PATH}"
 
 # Copy requirements first to leverage Docker cache
 COPY core-api/requirements.txt .
@@ -26,6 +27,7 @@ COPY core-api/requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir uvicorn[standard] && \
     rm -rf /root/.cache/pip/* && \
     rm -rf /root/.cache/torch/*
 
@@ -42,8 +44,15 @@ RUN apt-get update && \
     libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PORT=8000
+ENV PATH="/usr/local/bin:${PATH}"
+
 # Copy Python packages
 COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Set working directory
 WORKDIR /app
@@ -66,4 +75,4 @@ RUN find . -type d -name "__pycache__" -exec rm -r {} + 2>/dev/null || true && \
 EXPOSE ${PORT}
 
 # Command to run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"] 
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"] 
