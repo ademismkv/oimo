@@ -74,5 +74,10 @@ RUN find . -type d -name "__pycache__" -exec rm -r {} + 2>/dev/null || true && \
 # Expose the port
 EXPOSE ${PORT}
 
+# Create a shell script to start the application
+RUN echo '#!/bin/sh\n\
+python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1' > /app/start.sh && \
+    chmod +x /app/start.sh
+
 # Command to run the application
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"] 
+CMD ["/app/start.sh"] 
