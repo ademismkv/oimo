@@ -1,5 +1,6 @@
 [build]
 builder = "nixpacks"
+rootDir = "core-api"
 
 [deploy]
 healthcheckPath = "/status"
