@@ -69,25 +69,25 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 # Load the trained model
-model_path = os.getenv("MODEL_PATH", "models/best.pt")
+MODEL_PATH = os.getenv("MODEL_PATH", "models/best.pt")
 model = None
 
 # Check if model file exists
-if not os.path.exists(model_path):
-    logger.error(f"Model file not found at {model_path}")
+if not os.path.exists(MODEL_PATH):
+    logger.error(f"Model file not found at {MODEL_PATH}")
     logger.error(f"Current working directory: {os.getcwd()}")
     logger.error(f"Directory contents: {os.listdir('.')}")
-    logger.error(f"Looking for model in: {os.path.abspath(model_path)}")
+    logger.error(f"Looking for model in: {os.path.abspath(MODEL_PATH)}")
 else:
     try:
-        logger.info(f"Attempting to load model from {model_path}")
-        logger.info(f"Model file size: {os.path.getsize(model_path)} bytes")
+        logger.info(f"Attempting to load model from {MODEL_PATH}")
+        logger.info(f"Model file size: {os.path.getsize(MODEL_PATH)} bytes")
         
         # Try to load the model with explicit device
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logger.info(f"Using device: {device}")
         
-        model = YOLO(model_path)
+        model = YOLO(MODEL_PATH)
         model.to(device)
         
         # Test the model with a small tensor to ensure it's working
@@ -95,7 +95,7 @@ else:
         with torch.no_grad():
             model(test_input)
         
-        logger.info(f"Model loaded successfully from {model_path}")
+        logger.info(f"Model loaded successfully from {MODEL_PATH}")
         logger.info(f"Model classes: {model.names}")
     except Exception as e:
         logger.error(f"Failed to load model: {str(e)}")
@@ -214,8 +214,8 @@ async def status():
     return {
         "status": "running",
         "model_loaded": model is not None,
-        "model_path": model_path,
-        "model_path_exists": os.path.exists(model_path),
+        "model_path": MODEL_PATH,
+        "model_path_exists": os.path.exists(MODEL_PATH),
         "meanings_loaded": len(meanings_df) > 0,
         "working_directory": os.getcwd(),
         "python_path": sys.path,
@@ -589,10 +589,10 @@ async def debug():
         try:
             model_info["loaded"] = True
             model_info["classes"] = model.names
-                model_info["model_path"] = model_path
-                model_info["model_path_exists"] = os.path.exists(model_path)
-                if os.path.exists(model_path):
-                    model_info["model_size"] = os.path.getsize(model_path)
+                model_info["model_path"] = MODEL_PATH
+                model_info["model_path_exists"] = os.path.exists(MODEL_PATH)
+                if os.path.exists(MODEL_PATH):
+                    model_info["model_size"] = os.path.getsize(MODEL_PATH)
         except Exception as e:
             model_info["loaded"] = False
             model_info["error"] = str(e)
@@ -600,10 +600,10 @@ async def debug():
                 model_info["traceback"] = traceback.format_exc().split("\n")
     else:
         model_info["loaded"] = False
-            model_info["model_path"] = model_path
-            model_info["model_path_exists"] = os.path.exists(model_path)
-            if os.path.exists(model_path):
-                model_info["model_size"] = os.path.getsize(model_path)
+            model_info["model_path"] = MODEL_PATH
+            model_info["model_path_exists"] = os.path.exists(MODEL_PATH)
+            if os.path.exists(MODEL_PATH):
+                model_info["model_size"] = os.path.getsize(MODEL_PATH)
     
     # Get available meanings
         try:
