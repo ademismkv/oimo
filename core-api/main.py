@@ -17,6 +17,7 @@ import traceback
 from typing import List, Dict, Any, Optional
 import logging
 import json
+import torch
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
@@ -75,14 +76,31 @@ model = None
 if not os.path.exists(model_path):
     logger.error(f"Model file not found at {model_path}")
     logger.error(f"Current working directory: {os.getcwd()}")
-    logger.error(f"Content of training/runs/detect/yolov8_custom/weights/: {os.listdir('../training/runs/detect/yolov8_custom/weights/') if os.path.exists('../training/runs/detect/yolov8_custom/weights/') else 'Directory not found'}")
+    logger.error(f"Directory contents: {os.listdir('.')}")
 else:
     try:
+        logger.info(f"Attempting to load model from {model_path}")
+        logger.info(f"Model file size: {os.path.getsize(model_path)} bytes")
+        
+        # Try to load the model with explicit device
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        logger.info(f"Using device: {device}")
+        
         model = YOLO(model_path)
+        model.to(device)
+        
+        # Test the model with a small tensor to ensure it's working
+        test_input = torch.zeros((1, 3, 640, 640), device=device)
+        with torch.no_grad():
+            model(test_input)
+        
         logger.info(f"Model loaded successfully from {model_path}")
+        logger.info(f"Model classes: {model.names}")
     except Exception as e:
         logger.error(f"Failed to load model: {str(e)}")
+        logger.error(f"Error type: {type(e)}")
         logger.error(traceback.format_exc())
+        model = None  # Ensure model is None if loading fails
 
 # Load meanings database
 meanings_path = "meanings.csv"
@@ -592,39 +610,68 @@ async def root():
 @app.get("/debug")
 async def debug():
     """Debug endpoint to check model labels and available meanings"""
-    model_info = {}
-    meanings_info = {}
-    
-    # Get model labels if model is loaded
-    if model is not None:
-        try:
-            model_info["loaded"] = True
-            model_info["classes"] = model.names
-        except Exception as e:
-            model_info["loaded"] = False
-            model_info["error"] = str(e)
-    else:
-        model_info["loaded"] = False
-    
-    # Get available meanings
-    if len(meanings_df) > 0:
-        meanings_info["count"] = len(meanings_df)
-        meanings_info["names"] = meanings_df["name"].tolist()
+    try:
+        model_info = {}
+        meanings_info = {}
         
-        # Show a sample of meanings
-        sample = {}
-        for name in meanings_df["name"].tolist()[:3]:  # Show first 3
-            sample[name] = {
-                "en": get_ornament_meaning(name, "en"),
-                "kg": get_ornament_meaning(name, "kg"),
-                "ru": get_ornament_meaning(name, "ru"),
+        # Get model labels if model is loaded
+        if model is not None:
+            try:
+                model_info["loaded"] = True
+                model_info["classes"] = model.names
+                model_info["model_path"] = model_path
+                model_info["model_path_exists"] = os.path.exists(model_path)
+                if os.path.exists(model_path):
+                    model_info["model_size"] = os.path.getsize(model_path)
+            except Exception as e:
+                model_info["loaded"] = False
+                model_info["error"] = str(e)
+                model_info["error_type"] = str(type(e))
+                model_info["traceback"] = traceback.format_exc().split("\n")
+        else:
+            model_info["loaded"] = False
+            model_info["model_path"] = model_path
+            model_info["model_path_exists"] = os.path.exists(model_path)
+            if os.path.exists(model_path):
+                model_info["model_size"] = os.path.getsize(model_path)
+        
+        # Get available meanings
+        try:
+            if len(meanings_df) > 0:
+                meanings_info["count"] = len(meanings_df)
+                meanings_info["names"] = meanings_df["name"].tolist()
+                
+                # Show a sample of meanings
+                sample = {}
+                for name in meanings_df["name"].tolist()[:3]:  # Show first 3
+                    sample[name] = {
+                        "en": get_ornament_meaning(name, "en"),
+                        "kg": get_ornament_meaning(name, "kg"),
+                        "ru": get_ornament_meaning(name, "ru"),
+                    }
+                meanings_info["samples"] = sample
+            else:
+                meanings_info["count"] = 0
+        except Exception as e:
+            meanings_info["error"] = str(e)
+            meanings_info["error_type"] = str(type(e))
+            meanings_info["traceback"] = traceback.format_exc().split("\n")
+        
+        return {
+            "model": model_info,
+            "meanings": meanings_info,
+            "working_directory": os.getcwd(),
+            "python_version": sys.version,
+            "ultralytics_version": YOLO.__version__ if hasattr(YOLO, '__version__') else "unknown"
+        }
+    except Exception as e:
+        logger.error(f"Error in debug endpoint: {str(e)}")
+        logger.error(traceback.format_exc())
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": str(e),
+                "error_type": str(type(e)),
+                "traceback": traceback.format_exc().split("\n")
             }
-        meanings_info["samples"] = sample
-    else:
-        meanings_info["count"] = 0
-    
-    return {
-        "model": model_info,
-        "meanings": meanings_info,
-        "working_directory": os.getcwd()
-    } 
+        ) 
