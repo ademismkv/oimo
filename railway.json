@@ -3,11 +3,5 @@
   "build": {
     "builder": "DOCKERFILE",
     "dockerfilePath": "Dockerfile"
-  },
-  "deploy": {
-    "restartPolicy": "on-failure",
-    "restartPolicyMaxRetries": 10,
-    "healthcheckPath": "/status",
-    "healthcheckTimeout": 100
   }
 } 

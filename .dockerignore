@@ -1,15 +1,52 @@
+# Version control
 .git
 .gitignore
-.DS_Store
-__pycache__
-*.pyc
-*.pyo
-*.pyd
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
 .Python
 env/
 venv/
 .env
-*.log
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
 Dataset/
 training/
-deployment/ 
+deployment/
+*.log
+*.tmp
+*.temp
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+
+# Large files
+*.pt.backup
+*.onnx
+*.engine
+*.trt
+*.wts
+*.weights
+*.h5
+*.pkl
+*.joblib
+*.npy
+*.npz 
