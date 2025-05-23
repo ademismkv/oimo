@@ -42,6 +42,7 @@ class Language(str, Enum):
     KYRGYZ = "kg"
     RUSSIAN = "ru"
 
+# Move the app creation to the top level
 app = FastAPI(title="Ornament Detection API",
              description="API for detecting and identifying ornaments using YOLOv8")
 
@@ -649,4 +650,4 @@ async def debug():
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False) 
+    uvicorn.run(app, host="0.0.0.0", port=port, reload=False) 
