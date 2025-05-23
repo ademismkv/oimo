@@ -1,6 +1,6 @@
 [build]
-builder = "nixpacks"
-rootDir = "core-api"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 healthcheckPath = "/status"
