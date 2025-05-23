@@ -113,6 +113,11 @@ def process_image(image_path: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=error_msg)
     
     try:
+        # Read the original image
+        original_image = cv2.imread(image_path)
+        if original_image is None:
+            raise HTTPException(status_code=400, detail="Could not read image")
+        
         # Run inference
         logger.info(f"Processing image: {image_path}")
         results = model(image_path)
@@ -130,10 +135,20 @@ def process_image(image_path: str) -> Dict[str, Any]:
                     cls_name = model.names[cls]
                     bbox = box.xyxy.tolist()[0]  # Convert to list
                     
+                    # Crop the image
+                    x1, y1, x2, y2 = map(int, bbox)
+                    cropped = original_image[y1:y2, x1:x2]
+                    
+                    # Save cropped image to static folder
+                    cropped_filename = f"{cls_name}_{uuid.uuid4()}.jpg"
+                    cropped_path = os.path.join(uploads_dir, cropped_filename)
+                    cv2.imwrite(cropped_path, cropped)
+                    
                     detection = {
                         "class": cls_name,
                         "confidence": conf,
-                        "bbox": bbox
+                        "bbox": bbox,
+                        "cropped_image": f"/static/uploads/{cropped_filename}"
                     }
                     
                     all_detections.append(detection)
@@ -221,7 +236,7 @@ async def home():
         <style>
             body {
                 font-family: Arial, sans-serif;
-                max-width: 800px;
+                max-width: 1200px;
                 margin: 0 auto;
                 padding: 20px;
                 line-height: 1.6;
@@ -260,11 +275,49 @@ async def home():
                 border-radius: 4px;
                 display: none;
             }
-            .detection {
-                margin-bottom: 10px;
-                padding: 10px;
+            .detection-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 20px;
+                margin-top: 20px;
+            }
+            .detection-card {
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 15px;
                 background-color: #f9f9f9;
+            }
+            .detection-image {
+                width: 100%;
+                height: 200px;
+                object-fit: contain;
+                background-color: #fff;
+                border: 1px solid #eee;
                 border-radius: 4px;
+                margin-bottom: 10px;
+            }
+            .detection-info {
+                padding: 10px;
+            }
+            .detection-info h3 {
+                margin: 0 0 10px 0;
+                color: #2c3e50;
+            }
+            .detection-info p {
+                margin: 5px 0;
+            }
+            .confidence-bar {
+                width: 100%;
+                height: 20px;
+                background-color: #eee;
+                border-radius: 10px;
+                margin: 10px 0;
+                overflow: hidden;
+            }
+            .confidence-fill {
+                height: 100%;
+                background-color: #3498db;
+                transition: width 0.3s ease;
             }
             .loader {
                 border: 4px solid #f3f3f3;
@@ -279,10 +332,6 @@ async def home():
             @keyframes spin {
                 0% { transform: rotate(0deg); }
                 100% { transform: rotate(360deg); }
-            }
-            #result-img {
-                max-width: 100%;
-                margin-top: 20px;
             }
             .error-message {
                 color: red;
@@ -321,7 +370,6 @@ async def home():
         <div class="results" id="results">
             <h2>Detection Results</h2>
             <div id="detections-container"></div>
-            <img id="result-img" src="" alt="Processed image">
         </div>
         
         <div class="results" id="status-container" style="display:none">
@@ -389,18 +437,17 @@ async def home():
                 }
                 
                 const result = await response.json();
-                displayResults(result, file);
+                displayResults(result);
                 
             } catch (error) {
                 showError(`Error: ${error.message}`);
                 console.error(error);
             } finally {
-                // Hide loading spinner
                 document.getElementById('loader').style.display = 'none';
             }
         }
         
-        function displayResults(result, originalFile) {
+        function displayResults(result) {
             const resultsDiv = document.getElementById('results');
             const detectionsContainer = document.getElementById('detections-container');
             
@@ -410,38 +457,40 @@ async def home():
             // Add summary of detection counts
             const summaryDiv = document.createElement('div');
             summaryDiv.innerHTML = `
-                <p><strong>Results:</strong> Found ${result.unique_detections} unique ornament type(s) out of ${result.total_detections} total detection(s).</p>
+                <p><strong>Results:</strong> Found ${result.detections.length} unique ornament type(s) out of ${result.all_detections_count} total detection(s).</p>
             `;
             detectionsContainer.appendChild(summaryDiv);
             
+            // Create grid container for detections
+            const gridDiv = document.createElement('div');
+            gridDiv.className = 'detection-grid';
+            
             if (result.detections && result.detections.length > 0) {
                 result.detections.forEach((detection, index) => {
-                    const detectionDiv = document.createElement('div');
-                    detectionDiv.className = 'detection';
-                    detectionDiv.innerHTML = `
-                        <h3>Ornament: ${detection.class}</h3>
-                        <p><strong>Confidence:</strong> ${(detection.confidence * 100).toFixed(2)}%</p>
-                        <p><strong>Meaning:</strong> ${detection.meaning || 'No meaning available'}</p>
+                    const detectionCard = document.createElement('div');
+                    detectionCard.className = 'detection-card';
+                    
+                    // Create confidence bar
+                    const confidencePercent = (detection.confidence * 100).toFixed(1);
+                    
+                    detectionCard.innerHTML = `
+                        <img src="${detection.cropped_image}" alt="${detection.class}" class="detection-image">
+                        <div class="detection-info">
+                            <h3>${detection.class}</h3>
+                            <p><strong>Confidence:</strong> ${confidencePercent}%</p>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" style="width: ${confidencePercent}%"></div>
+                            </div>
+                            <p><strong>Meaning:</strong> ${detection.meaning || 'No meaning available'}</p>
+                        </div>
                     `;
-                    detectionsContainer.appendChild(detectionDiv);
+                    
+                    gridDiv.appendChild(detectionCard);
                 });
-                
-                // Display created folders if any
-                if (result.new_ornament_folders) {
-                    const foldersDiv = document.createElement('div');
-                    foldersDiv.innerHTML = `<p><strong>New folders created:</strong> ${result.new_ornament_folders.join(', ')}</p>`;
-                    detectionsContainer.appendChild(foldersDiv);
-                }
-            } else {
-                detectionsContainer.innerHTML = '<p>No ornaments detected</p>';
             }
             
-            // Show results container
+            detectionsContainer.appendChild(gridDiv);
             resultsDiv.style.display = 'block';
-            
-            // Display the original image
-            const resultImg = document.getElementById('result-img');
-            resultImg.src = URL.createObjectURL(originalFile);
         }
         </script>
     </body>
