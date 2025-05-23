@@ -75,4 +75,4 @@ RUN find . -type d -name "__pycache__" -exec rm -r {} + 2>/dev/null || true && \
 EXPOSE ${PORT}
 
 # Command to run the application
-CMD ["python", "main.py"] 
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"] 
