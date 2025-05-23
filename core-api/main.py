@@ -582,55 +582,55 @@ async def root():
 async def debug():
     """Debug endpoint to check model labels and available meanings"""
     try:
-    model_info = {}
-    meanings_info = {}
-    
-    # Get model labels if model is loaded
-    if model is not None:
-        try:
-            model_info["loaded"] = True
-            model_info["classes"] = model.names
+        model_info = {}
+        meanings_info = {}
+        
+        # Get model labels if model is loaded
+        if model is not None:
+            try:
+                model_info["loaded"] = True
+                model_info["classes"] = model.names
                 model_info["model_path"] = MODEL_PATH
                 model_info["model_path_exists"] = os.path.exists(MODEL_PATH)
                 if os.path.exists(MODEL_PATH):
                     model_info["model_size"] = os.path.getsize(MODEL_PATH)
-        except Exception as e:
-            model_info["loaded"] = False
-            model_info["error"] = str(e)
+            except Exception as e:
+                model_info["loaded"] = False
+                model_info["error"] = str(e)
                 model_info["error_type"] = str(type(e))
                 model_info["traceback"] = traceback.format_exc().split("\n")
-    else:
-        model_info["loaded"] = False
+        else:
+            model_info["loaded"] = False
             model_info["model_path"] = MODEL_PATH
             model_info["model_path_exists"] = os.path.exists(MODEL_PATH)
             if os.path.exists(MODEL_PATH):
                 model_info["model_size"] = os.path.getsize(MODEL_PATH)
-    
-    # Get available meanings
-        try:
-    if len(meanings_df) > 0:
-        meanings_info["count"] = len(meanings_df)
-        meanings_info["names"] = meanings_df["name"].tolist()
         
-        # Show a sample of meanings
-        sample = {}
-        for name in meanings_df["name"].tolist()[:3]:  # Show first 3
-            sample[name] = {
-                "en": get_ornament_meaning(name, "en"),
-                "kg": get_ornament_meaning(name, "kg"),
-                "ru": get_ornament_meaning(name, "ru"),
-            }
-        meanings_info["samples"] = sample
-    else:
-        meanings_info["count"] = 0
+        # Get available meanings
+        try:
+            if len(meanings_df) > 0:
+                meanings_info["count"] = len(meanings_df)
+                meanings_info["names"] = meanings_df["name"].tolist()
+                
+                # Show a sample of meanings
+                sample = {}
+                for name in meanings_df["name"].tolist()[:3]:  # Show first 3
+                    sample[name] = {
+                        "en": get_ornament_meaning(name, "en"),
+                        "kg": get_ornament_meaning(name, "kg"),
+                        "ru": get_ornament_meaning(name, "ru"),
+                    }
+                meanings_info["samples"] = sample
+            else:
+                meanings_info["count"] = 0
         except Exception as e:
             meanings_info["error"] = str(e)
             meanings_info["error_type"] = str(type(e))
             meanings_info["traceback"] = traceback.format_exc().split("\n")
-    
-    return {
-        "model": model_info,
-        "meanings": meanings_info,
+        
+        return {
+            "model": model_info,
+            "meanings": meanings_info,
             "working_directory": os.getcwd(),
             "python_version": sys.version,
             "ultralytics_version": YOLO.__version__ if hasattr(YOLO, '__version__') else "unknown"
