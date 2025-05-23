@@ -69,7 +69,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 # Load the trained model
-model_path = "best.pt"
+model_path = os.getenv("MODEL_PATH", "models/best.pt")
 model = None
 
 # Check if model file exists
@@ -77,6 +77,7 @@ if not os.path.exists(model_path):
     logger.error(f"Model file not found at {model_path}")
     logger.error(f"Current working directory: {os.getcwd()}")
     logger.error(f"Directory contents: {os.listdir('.')}")
+    logger.error(f"Looking for model in: {os.path.abspath(model_path)}")
 else:
     try:
         logger.info(f"Attempting to load model from {model_path}")
@@ -110,10 +111,6 @@ try:
 except Exception as e:
     logger.error(f"Failed to load meanings database: {str(e)}")
     meanings_df = pd.DataFrame(columns=["name", "kg", "ru", "en"])
-
-# Create Dataset directory if it doesn't exist
-dataset_dir = "../Dataset"
-os.makedirs(dataset_dir, exist_ok=True)
 
 # Create static directory for uploaded images
 static_dir = "static"
@@ -210,25 +207,6 @@ def get_ornament_meaning(ornament_name: str, lang: Language = Language.ENGLISH) 
     logger.info(f"Available ornaments: {', '.join(meanings_df['name'].tolist())}")
     
     return None
-
-def save_to_dataset(image_path: str, class_name: str) -> List[str]:
-    """Save image to Dataset folder organized by detected ornament class"""
-    created_folders = []
-    
-    # Create directory if it doesn't exist
-    class_dir = os.path.join(dataset_dir, class_name)
-    if not os.path.exists(class_dir):
-        os.makedirs(class_dir)
-        created_folders.append(class_name)
-        
-    # Copy the image to the class directory with a unique name
-    dest_filename = f"{class_name}_{uuid.uuid4()}.jpg"
-    dest_path = os.path.join(class_dir, dest_filename)
-    
-    # Copy the image
-    shutil.copy(image_path, dest_path)
-    
-    return created_folders
 
 @app.get("/status")
 async def status():
@@ -563,14 +541,6 @@ async def detect_ornaments(file: UploadFile = File(...),
         
         # Get all unique ornament classes detected
         ornament_classes = [d["class"] for d in result["detections"]]
-        
-        # Save to dataset and track new folders
-        new_folders = []
-        for ornament_class in ornament_classes:
-            new_folders.extend(save_to_dataset(temp_file, ornament_class))
-            
-        if new_folders:
-            result["new_ornament_folders"] = new_folders
             
         # Include total detection count for reference
         result["total_detections"] = result.pop("all_detections_count", 0)
@@ -611,55 +581,55 @@ async def root():
 async def debug():
     """Debug endpoint to check model labels and available meanings"""
     try:
-        model_info = {}
-        meanings_info = {}
-        
-        # Get model labels if model is loaded
-        if model is not None:
-            try:
-                model_info["loaded"] = True
-                model_info["classes"] = model.names
+    model_info = {}
+    meanings_info = {}
+    
+    # Get model labels if model is loaded
+    if model is not None:
+        try:
+            model_info["loaded"] = True
+            model_info["classes"] = model.names
                 model_info["model_path"] = model_path
                 model_info["model_path_exists"] = os.path.exists(model_path)
                 if os.path.exists(model_path):
                     model_info["model_size"] = os.path.getsize(model_path)
-            except Exception as e:
-                model_info["loaded"] = False
-                model_info["error"] = str(e)
+        except Exception as e:
+            model_info["loaded"] = False
+            model_info["error"] = str(e)
                 model_info["error_type"] = str(type(e))
                 model_info["traceback"] = traceback.format_exc().split("\n")
-        else:
-            model_info["loaded"] = False
+    else:
+        model_info["loaded"] = False
             model_info["model_path"] = model_path
             model_info["model_path_exists"] = os.path.exists(model_path)
             if os.path.exists(model_path):
                 model_info["model_size"] = os.path.getsize(model_path)
-        
-        # Get available meanings
+    
+    # Get available meanings
         try:
-            if len(meanings_df) > 0:
-                meanings_info["count"] = len(meanings_df)
-                meanings_info["names"] = meanings_df["name"].tolist()
-                
-                # Show a sample of meanings
-                sample = {}
-                for name in meanings_df["name"].tolist()[:3]:  # Show first 3
-                    sample[name] = {
-                        "en": get_ornament_meaning(name, "en"),
-                        "kg": get_ornament_meaning(name, "kg"),
-                        "ru": get_ornament_meaning(name, "ru"),
-                    }
-                meanings_info["samples"] = sample
-            else:
-                meanings_info["count"] = 0
+    if len(meanings_df) > 0:
+        meanings_info["count"] = len(meanings_df)
+        meanings_info["names"] = meanings_df["name"].tolist()
+        
+        # Show a sample of meanings
+        sample = {}
+        for name in meanings_df["name"].tolist()[:3]:  # Show first 3
+            sample[name] = {
+                "en": get_ornament_meaning(name, "en"),
+                "kg": get_ornament_meaning(name, "kg"),
+                "ru": get_ornament_meaning(name, "ru"),
+            }
+        meanings_info["samples"] = sample
+    else:
+        meanings_info["count"] = 0
         except Exception as e:
             meanings_info["error"] = str(e)
             meanings_info["error_type"] = str(type(e))
             meanings_info["traceback"] = traceback.format_exc().split("\n")
-        
-        return {
-            "model": model_info,
-            "meanings": meanings_info,
+    
+    return {
+        "model": model_info,
+        "meanings": meanings_info,
             "working_directory": os.getcwd(),
             "python_version": sys.version,
             "ultralytics_version": YOLO.__version__ if hasattr(YOLO, '__version__') else "unknown"
